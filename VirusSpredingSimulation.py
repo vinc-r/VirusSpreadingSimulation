@@ -46,7 +46,7 @@ class VirusSpreadingSimulation:
             "y": np.random.uniform(0, ylim, population),
             "speed": np.random.chisquare(speed_avg, population),
             "healthy": [True] * population,
-            "incubation_period": [-1] * population,
+            "incubation_time": [-1] * population,
             "quarantine_zone": [False] * population,
             "confined": [False] * population,
             "recovered": [False] * population,
@@ -96,8 +96,13 @@ class VirusSpreadingSimulation:
         crossed_y1 = (self.pop["y"] < 0)
         crossed_y2 = (self.pop["y"] > self.xlim)
 
-        # Calculate new position and new radian
+        # Calculate new position and new radian if boundary crossed
         # new position on border, new radian calculate for each point (on available directions)
+        # -> crossing line
+        self.pop.loc[crossed_x1, ["x", "radian"]] = [0, rd.uniform(0, pi, sum(crossed_x1))]
+        self.pop.loc[crossed_x2, ["x", "radian"]] = [self.xlim, rd.uniform(pi, 2 * pi, sum(crossed_x2))]
+        self.pop.loc[crossed_y1, ["y", "radian"]] = [0, rd.uniform(-pi / 2, pi / 2, sum(crossed_y1))]
+        self.pop.loc[crossed_y2, ["y", "radian"]] = [self.ylim, rd.uniform(pi / 2, 3 * pi / 2, sum(crossed_y2))]
         # -> crossing corner
         self.pop.loc[crossed_x1 & crossed_y1,
                      ["x", "y", "radian"]] = [0, 0, rd.uniform(0, pi / 2, sum(crossed_x1 & crossed_y1))]
@@ -109,17 +114,16 @@ class VirusSpreadingSimulation:
         self.pop.loc[crossed_x2 & crossed_y1,
                      ["x", "y", "radian"]] = [self.xlim, 0, rd.uniform(3 * pi / 2, 2 * pi),
                                               sum(crossed_x2 & crossed_y1)]
-        # -> crossing line
-        self.pop.loc[crossed_x1, ["x", "radian"]] = [0, rd.uniform(0, pi, sum(crossed_x1))]
-        self.pop.loc[crossed_x2, ["x", "radian"]] = [self.xlim, rd.uniform(pi, 2 * pi, sum(crossed_x2))]
-        self.pop.loc[crossed_y1, ["y", "radian"]] = [0, rd.uniform(-pi / 2, pi / 2, sum(crossed_y1))]
-        self.pop.loc[crossed_y2, ["y", "radian"]] = [self.ylim, rd.uniform(pi / 2, 3 * pi / 2, sum(crossed_y2))]
 
         if self.nb_step == fps:
             self.nb_step = 0
             self.movement()
 
     def movement(self):
+        """
+        Movement is represent in a second on the plot, with fps frame per seconds
+        At each movement, can be contaminate
+        """
         # Contaminate with probability
         self.contamination()
 
@@ -131,6 +135,9 @@ class VirusSpreadingSimulation:
             self.new_day()
 
     def contamination(self):
+        """
+        Contamination depending p_infection
+        """
         # contaminate close points with probability
         for index, row in self.pop.iterrows():
             # probability depending of the number of points around
@@ -140,7 +147,11 @@ class VirusSpreadingSimulation:
                 self.pop.loc[index, ["healthy", "incubation_period", "situation"]] = [False, 0, "infected"]
 
     def get_nb_person_around(self, pos):
-        # number of person around point (minus himself)
+        """
+        get_nb_person_around
+        :param pos: tuple => coordinates of a point (x, y)
+        :return: int => number of person around point (minus himself)
+        """
         return sum(np.sqrt((self.pop["x"] - pos[0])**2 + (self.pop["y"] - pos[1])**2) < self.radius_infection) - 1
 
     def new_day(self):
@@ -150,9 +161,23 @@ class VirusSpreadingSimulation:
         self.pop[change_radian, ["radian", "days_keeping_radian"]] = \
             [np.random.uniform(-pi, pi, sum(change_radian)), np.random.randint(1, 11, sum(change_radian))]
 
-        # Vérifie quanrentine and sick people
+        # increase incubation time for people infected
+        self.pop.loc[self.pop["incubation_time"] > -1, "incubation_time"] += 1
+
         # TODO
+        # if self.quarantine_zone:
 
+        # TODO
+        # Confined points
 
+        # TODO
+        # recovered points
 
-print("FINISH")
+        # TODO
+        # dead points
+
+        # TODO
+        # Change radian
+
+        # TODO
+        # calculate situation
