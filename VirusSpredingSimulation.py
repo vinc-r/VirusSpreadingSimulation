@@ -11,10 +11,10 @@ fps = 30
 class VirusSpreadingSimulation:
 
     def __init__(self, population=20, xlim=20., ylim=20.,
-                 radius_infection=1., p_infection=0.5, incubation_period=14,
+                 radius_infection=1., p_infection=0.2, incubation_period=14,
                  healing_duration=14, death_rate=0.1, without_symptom_rate=0.3,
                  quarantine_zone=False,
-                 isolation_threshold=0.2, pct_pop_insolated=0.8,
+                 isolation_threshold=0.2, pct_pop_isolated=0.8,
                  speed_avg=10., step_per_day=5):
 
         """
@@ -70,7 +70,7 @@ class VirusSpreadingSimulation:
         self.without_symptom_rate = without_symptom_rate
         self.quarantine_zone = quarantine_zone
         self.isolation_threshold = isolation_threshold
-        self.pct_pop_insolated = pct_pop_insolated
+        self.pct_pop_isolated = pct_pop_isolated
 
         # counting time
         self.step_per_day = step_per_day
@@ -152,8 +152,10 @@ class VirusSpreadingSimulation:
     def contamination(self):
         """Contamination depending p_infection"""
         # identify caring points
-        caring_points = self.pop.loc[(self.pop["infected_day"] > 0) & (~self.pop["dead"]) & (~self.pop["recovered"]),
+        caring_points = self.pop.loc[(self.pop["situation"].isin(["infected", "sick"]) &
+                                      (self.pop["infected_day"] != self.day)),
                                      ["x", "y"]]
+        print(caring_points)
         # contaminate close points with probability
         for index, row in self.pop.iterrows():
             if row["situation"] == "not_infected":
@@ -208,11 +210,11 @@ class VirusSpreadingSimulation:
         # ----> Points stay immobile if isolation_threshold is exceeded
 
         print("-- END OF DAY", self.day, "--")
-        print("  -> pct not_infected :", self.nb_not_infected / self.pop_size * 100)
-        print("  -> pct infected :", self.nb_infected / self.pop_size * 100)
-        print("  -> pct sick :", self.nb_sick / self.pop_size * 100)
-        print("  -> pct recovered :", self.nb_recovered / self.pop_size * 100)
-        print("  -> pct dead :", self.nb_dead / self.pop_size * 100)
+        print("  -> pct not_infected :", self.nb_not_infected / self.pop_size * 100, "% \t", self.nb_not_infected)
+        print("  -> pct infected :", self.nb_infected / self.pop_size * 100, "% \t", self.nb_infected)
+        print("  -> pct sick :", self.nb_sick / self.pop_size * 100, "% \t", self.nb_sick)
+        print("  -> pct recovered :", self.nb_recovered / self.pop_size * 100, "% \t", self.nb_recovered)
+        print("  -> pct dead :", self.nb_dead / self.pop_size * 100, "% \t", self.nb_dead, "\n")
 
     def update_spreading_counters(self):
         """update all spreading counters"""
@@ -235,18 +237,19 @@ class VirusSpreadingSimulation:
 
     def update_dead_points(self):
         """update dead points"""
-        self.pop.loc[self.pop["death_day"] == self.day - self.pop["infected_day"],
+        self.pop.loc[(self.pop["death_day"] == self.day - self.pop["infected_day"]) & (self.pop["infected_day"] != -1),
                      ["quarantine_zone", "confined", "dead", "days_keeping_radian", "situation"]] = \
             [False, True, True, 999999, "dead"]
 
     def update_infected_to_sick_points(self):
         """points at the end of incubation period passing from infected to sick"""
-        self.pop.loc[self.pop["infected_day"] + self.incubation_period == self.day,
+        self.pop.loc[(self.pop["infected_day"] + self.incubation_period == self.day) & (self.pop["infected_day"] != -1),
                      ["quarantine_zone", "situation"]] = [True, "sick"]
 
     def update_recovered_points(self):
         """points at the end of healing period passing from sick to recovered"""
-        self.pop.loc[self.day - self.pop["infected_day"] == self.healing_duration + self.incubation_period,
+        self.pop.loc[(self.day - self.pop["infected_day"] == self.healing_duration + self.incubation_period) &
+                     (self.pop["infected_day"] != -1),
                      ["healthy", "quarantine_zone", "confined", "recovered", "situation"]] = \
             [True, False, False, True, "recovered"]
 

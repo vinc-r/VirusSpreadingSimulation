@@ -1,4 +1,5 @@
 import unittest
+import pandas as pd
 from VirusSpreadingSimulation.VirusSpredingSimulation import VirusSpreadingSimulation
 
 # GLOBAL VARIABLES
@@ -25,7 +26,7 @@ class TestVSS(unittest.TestCase):
     """Test case for class VirusSpreadingSimulation"""
 
     def setUp(self):
-        """Initialization"""
+        """Initialization using global variables"""
         self.VSS = VirusSpreadingSimulation(population=pop, xlim=xlim, ylim=ylim, speed_avg=speed_avg,
                                             radius_infection=radius_infection, p_infection=p_infection,
                                             incubation_period=incubation_period, healing_duration=healing_duration,
@@ -94,45 +95,93 @@ class TestVSS(unittest.TestCase):
                              ["nb_not_infected", "nb_infected", "nb_sick", "nb_recovered", "nb_dead"])
 
     def test_step(self):
-        # TODO
-        pass
+        # call function
+        self.VSS.step()
+
+        # check incrementation nb_step
+        self.assertEqual(self.VSS.nb_step, 1)
+
+        # check positions
+        self.assertGreaterEqual(self.VSS.pop['x'].min(), 0)
+        self.assertLessEqual(self.VSS.pop['x'].max(), xlim)
+        self.assertGreaterEqual(self.VSS.pop['y'].min(), 0)
+        self.assertLessEqual(self.VSS.pop['y'].max(), ylim)
 
     def test_movement(self):
-        # TODO
-        pass
+        """new_day() and contamination() test in respective function test"""
+        # call function
+        self.VSS.movement()
+
+        # check incrementation
+        self.assertEqual(self.VSS.mvt, 1)
+        self.assertEqual(self.VSS.mvt_in_day, 1)
+
+        # call function having VSS.mvt_in_day == VSS.step_per_day
+        # minus 1 because step_per_day will be increase firstly
+        self.VSS.mvt_in_day = step_per_day - 1
+        self.VSS.movement()
+
+        # check incrementation
+        self.assertEqual(self.VSS.mvt_in_day, 0)
+        self.assertEqual(self.VSS.day, 1)
 
     def test_contamination(self):
-        # TODO
-        pass
+        """
+        Check how contamination work well.
+        Create a fake pop with choose specific positions
+
+        create specific pop to test contamination function
+        pop having 2 infected points :
+        ----> 1 isolated point (will not contaminate)
+        ----> 1 points having neighbours
+              ----> 2 points not infected
+              ----> 1 points not infected at distance of 1 (no contagion risk)
+              ----> 1 point dead
+              ----> 1 point recovered (can't be infected again)
+        -----> 3 other isolated points (not_infected * 2, recovered)
+        """
+        self.VSS.pop = pd.DataFrame({
+            "x": [0, .5, .5, 1, 1.5, 1.5, 2, 2, 3, 4],
+            "y": [0, .25, 1.25, 1, 1, 1.5, 1, 2, 2, 1],
+            "healthy": [True, True, False, False, True, True, True, True, True, False],
+            "infected_day": [-1, -1, 2, 25, -1, 4, -1, 6, -1, 18],
+            "dead": [False, False, True, False, False, False, False, False, False, False],
+            "recovered": [False, False, False, False, False, True, False, True, False, False],
+            "situation": ["not_infected", "not_infected", "dead", "infected", "not_infected",
+                          "recovered", "not_infected", "recovered", "not_infected", "sick"]
+        })
+        # call function
+        # self.VSS.contamination()
 
     def test_get_nb_caring_points_around(self):
         # TODO
+        # self.VSS.get_nb_caring_points_around(pos, caring_points)
         pass
 
     def test_new_day(self):
         # TODO
-        pass
+        self.VSS.new_day()
 
     def test_update_spreading_counters(self):
         # TODO
-        pass
+        self.VSS.update_spreading_counters()
 
     def test_update_dead_points(self):
         # TODO
-        pass
+        self.VSS.update_dead_points()
 
     def test_update_infected_to_sick_points(self):
         # TODO
-        pass
+        self.VSS.update_infected_to_sick_points()
 
     def test_update_recovered_points(self):
         # TODO
-        pass
+        self.VSS.update_recovered_points()
 
     def test_update_radian_points(self):
         # TODO
-        pass
+        self.VSS.update_radian_points()
 
     def test_get_stats(self):
         # TODO
-        pass
+        self.VSS.get_stats()
