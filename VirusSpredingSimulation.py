@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
 from math import pi
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 np.random.seed(123)
-
-# 30 frame per second
-fps = 30
 
 
 class VirusSpreadingSimulation:
@@ -15,7 +15,7 @@ class VirusSpreadingSimulation:
                  healing_duration=14, death_rate=0.1, without_symptom_rate=0.3,
                  quarantine_zone=False,
                  isolation_threshold=0.2, pct_pop_isolated=0.8,
-                 speed_avg=10., step_per_day=5):
+                 speed_avg=10., mpd=5, fpm=2):
 
         """
         __init__
@@ -30,9 +30,10 @@ class VirusSpreadingSimulation:
         :param without_symptom_rate: float ∈ [0,1] => probability to not show any symptoms
         :param quarantine_zone: bool => create a quarantine area (separation between sick and healthy points)
         :param isolation_threshold: float ∈ [0,1] => threshold from which movements will stop
-        :param pct_pop_insolated: float ∈ [0,1] => pct of population who will really stop moving
+        :param pct_pop_isolated: float ∈ [0,1] => pct of population who will really stop moving
         :param speed_avg: float ∈ R+* => average speed of a point
-        :param step_per_day: int => number of step per day (possible to be infect at each step)
+        :param mpd: int => number of movement per day (possible to be infect at each movement)
+        :param fpm: int => number of frame per movement (actualisation of point positions/color on DataViz)
         """
 
         # Set population
@@ -54,7 +55,7 @@ class VirusSpreadingSimulation:
                                   np.random.choice(
                                       range(incubation_period, incubation_period + healing_duration), population)),
             "radian": np.random.uniform(-pi, pi, population),
-            "days_keeping_radian": np.random.randint(1, 5, population),
+            "days_keeping_radian": np.random.randint(1, 11, population),
             # Possible situations ["not_infected", "infected", "sick", "recovered", "dead"]
             "situation": ["not_infected"] * population
         })
@@ -72,8 +73,12 @@ class VirusSpreadingSimulation:
         self.isolation_threshold = isolation_threshold
         self.pct_pop_isolated = pct_pop_isolated
 
+        # no isolation at the beginning
+        self.isolation = False
+
         # counting time
-        self.step_per_day = step_per_day
+        self.mpd = mpd
+        self.fpm = fpm
         self.day = 0
         self.mvt = 0
         self.mvt_in_day = 0
@@ -97,13 +102,13 @@ class VirusSpreadingSimulation:
             index=['Day_' + str(0)]
         )
 
-    def step(self):
+    def frame(self):
         """every frame update positions"""
         self.nb_step += 1
 
         # update positions
-        self.pop["x"] = self.pop["x"] + self.pop["speed"] / self.step_per_day / fps * np.cos(self.pop["radian"])
-        self.pop["y"] = self.pop["y"] + self.pop["speed"] / self.step_per_day / fps * np.sin(self.pop["radian"])
+        self.pop["x"] = self.pop["x"] + self.pop["speed"] / self.mpd / self.fpm * np.cos(self.pop["radian"])
+        self.pop["y"] = self.pop["y"] + self.pop["speed"] / self.mpd / self.fpm * np.sin(self.pop["radian"])
 
         # check for crossing boundary
         crossed_x1 = (self.pop["x"] < 0)
@@ -130,13 +135,13 @@ class VirusSpreadingSimulation:
         self.pop.loc[crossed_x2 & crossed_y1, ["x", "y", "radian"]] = \
             [self.xlim, 0, np.random.uniform(5 * pi / 8, 7 * pi / 8, sum(crossed_x2 & crossed_y1))]
 
-        if self.nb_step == fps:
+        if self.nb_step == self.fpm:
             self.nb_step = 0
-            self.movement()
+            self.movement(verbose=1)
 
-    def movement(self):
+    def movement(self, verbose=0):
         """
-        Movement is represent in a second on the plot, with fps frame per seconds
+        Movement is represent in a second on the plot, with fpm frame per movement
         At each movement, can be contaminate
         """
         # Contaminate with probability
@@ -144,25 +149,34 @@ class VirusSpreadingSimulation:
 
         self.mvt += 1
         self.mvt_in_day += 1
-        if self.mvt_in_day == self.step_per_day:
+        if self.mvt_in_day == self.mpd:
             self.mvt_in_day = 0
             self.day += 1
-            self.new_day()
+            self.new_day(verbose=verbose)
 
     def contamination(self):
         """Contamination depending p_infection"""
         # identify caring points
-        caring_points = self.pop.loc[(self.pop["situation"].isin(["infected", "sick"]) &
-                                      (self.pop["infected_day"] != self.day)),
-                                     ["x", "y"]]
-        print(caring_points)
+        if not self.quarantine_zone:
+            caring_points = self.pop.loc[(self.pop["situation"].isin(["infected", "sick"]) &
+                                          (self.pop["infected_day"] != self.day)), ["x", "y"]]
+        else:
+            # if quarantine, sick points can't infect
+            caring_points = self.pop.loc[(self.pop["situation"] == "infected") &
+                                         (self.pop["infected_day"] != self.day), ["x", "y"]]
         # contaminate close points with probability
         for index, row in self.pop.iterrows():
             if row["situation"] == "not_infected":
                 # probability depending of the number of points around
                 # each point have probability self.p_infection to infect
-                p_stay_safe = (1 - self.p_infection) ** \
-                              self.get_nb_caring_points_around((row["x"], row["y"]), caring_points)
+                first_filter = (caring_points["x"].between(row["x"] - self.radius_infection,
+                                                           row["x"] + self.radius_infection, inclusive=False)) & \
+                               (caring_points["y"].between(row["y"] - self.radius_infection,
+                                                           row["y"] + self.radius_infection, inclusive=False))
+                if sum(first_filter) == 0:
+                    continue
+                p_stay_safe = (1-self.p_infection) ** self.get_nb_caring_points_around((row["x"], row["y"]),
+                                                                                       caring_points.loc[first_filter])
                 if p_stay_safe < np.random.uniform():
                     self.pop.loc[index, ["healthy", "infected_day", "situation"]] = [False, self.day, "infected"]
 
@@ -190,7 +204,7 @@ class VirusSpreadingSimulation:
             (np.sqrt((self.pop["x"] - pos[0]) ** 2 + (self.pop["y"] - pos[1]) ** 2) < self.radius_infection),
             ["x", "y"]].shape[0]
 
-    def new_day(self):
+    def new_day(self, verbose=0):
 
         # update points situation
         self.update_dead_points()
@@ -201,20 +215,15 @@ class VirusSpreadingSimulation:
         # update counters
         self.update_spreading_counters()
 
-        # TODO
-        # if self.quarantine_zone:
-        # ----> Remove sick people of area
+        # update isolation of pop
+        sick_prop = self.nb_sick / self.pop_size
+        if not self.isolation and self.isolation_threshold >= sick_prop:
+            self.update_no_isolation_to_isolation()
+        elif self.isolation and self.isolation_threshold < sick_prop:
+            self.update_isolation_to_no_isolation()
 
-        # TODO
-        # Confined points (if self.isolation_threshold > self.nb_sick / self.pop_size)
-        # ----> Points stay immobile if isolation_threshold is exceeded
-
-        print("-- END OF DAY", self.day, "--")
-        print("  -> pct not_infected :", self.nb_not_infected / self.pop_size * 100, "% \t", self.nb_not_infected)
-        print("  -> pct infected :", self.nb_infected / self.pop_size * 100, "% \t", self.nb_infected)
-        print("  -> pct sick :", self.nb_sick / self.pop_size * 100, "% \t", self.nb_sick)
-        print("  -> pct recovered :", self.nb_recovered / self.pop_size * 100, "% \t", self.nb_recovered)
-        print("  -> pct dead :", self.nb_dead / self.pop_size * 100, "% \t", self.nb_dead, "\n")
+        if verbose > 0:
+            self.print_situation()
 
     def update_spreading_counters(self):
         """update all spreading counters"""
@@ -243,13 +252,13 @@ class VirusSpreadingSimulation:
 
     def update_infected_to_sick_points(self):
         """points at the end of incubation period passing from infected to sick"""
-        self.pop.loc[(self.pop["infected_day"] + self.incubation_period == self.day) & (self.pop["infected_day"] != -1),
-                     ["quarantine_zone", "situation"]] = [True, "sick"]
+        self.pop.loc[(self.pop["infected_day"] + self.incubation_period == self.day) &
+                     (self.pop["situation"] == "infected"), ["quarantine_zone", "situation"]] = [True, "sick"]
 
     def update_recovered_points(self):
         """points at the end of healing period passing from sick to recovered"""
         self.pop.loc[(self.day - self.pop["infected_day"] == self.healing_duration + self.incubation_period) &
-                     (self.pop["infected_day"] != -1),
+                     (self.pop["situation"].isin(["sick", "infected"])),
                      ["healthy", "quarantine_zone", "confined", "recovered", "situation"]] = \
             [True, False, False, True, "recovered"]
 
@@ -266,5 +275,103 @@ class VirusSpreadingSimulation:
                 [np.random.uniform(-pi, pi, sum(change_radian))[0],
                  int(np.random.randint(1, 6, sum(change_radian))[0])]
 
+    def update_isolation_to_no_isolation(self):
+        # TODO
+        self.isolation = False
+
+    def update_no_isolation_to_isolation(self):
+        # TODO
+        self.isolation = True
+
     def get_stats(self):
         return self.stats
+
+    def get_plot(self):
+
+        fig = plt.figure(constrained_layout=False, figsize=(12, 8))
+        grid = fig.add_gridspec(nrows=3, ncols=3)
+
+        # init axis
+        ax1 = fig.add_subplot(grid[:, :-1])
+        ax2 = fig.add_subplot(grid[0, -1])
+        ax3 = fig.add_subplot(grid[1, -1])
+        ax4 = fig.add_subplot(grid[2, -1])
+
+        ax1.axis('off')
+        ax1.add_patch(mpatches.Rectangle((0, 0), self.xlim, self.ylim, color="black", fill=False))
+        ax2.axis('off')
+        ax3.set_title('Evolution by days')
+        ax4.axis('off')
+        ax4.add_patch(mpatches.Rectangle((0, 0), self.xlim, self.ylim, color="red", fill=False))
+
+        # plot points (except sick)
+        h_points, = ax1.plot(self.pop.loc[self.pop["situation"] == "not_infected", "x"],
+                             self.pop.loc[self.pop["situation"] == "not_infected", "y"], 'bo', ms=3)
+        i_points, = ax1.plot(self.pop.loc[self.pop["situation"] == "infected", "x"],
+                             self.pop.loc[self.pop["situation"] == "infected", "y"], 'o', color="orange",
+                             ms=3)
+        r_points, = ax1.plot(self.pop.loc[self.pop["situation"] == "recovered", "x"],
+                             self.pop.loc[self.pop["situation"] == "recovered", "y"], 'go', ms=3)
+        d_points, = ax1.plot(self.pop.loc[self.pop["situation"] == "dead", "x"],
+                             self.pop.loc[self.pop["situation"] == "dead", "y"], 'ko', ms=3)
+
+        # plot sick points (except sick)
+        s_points, = ax4.plot(self.pop.loc[self.pop["situation"] == "sick", "x"],
+                             self.pop.loc[self.pop["situation"] == "sick", "y"], 'ro', ms=3)
+
+        # plot cumulative area
+        ax3.fill_between(range(self.day + 1), self.stats.cumsum(axis=1)["nb_dead"], facecolor='black')
+        ax3.fill_between(range(self.day + 1), self.stats.cumsum(axis=1)["nb_recovered"], facecolor='green')
+        ax3.fill_between(range(self.day + 1), self.stats.cumsum(axis=1)["nb_sick"], facecolor='red')
+        ax3.fill_between(range(self.day + 1), self.stats.cumsum(axis=1)["nb_infected"], facecolor='orange')
+        ax3.fill_between(range(self.day + 1), self.stats.cumsum(axis=1)["nb_not_infected"],
+                         facecolor='navy')
+
+        h_patch = mpatches.Patch(color='navy', label='Not Infected')
+        i_patch = mpatches.Patch(color='orange', label='Infected')
+        s_patch = mpatches.Patch(color='red', label='Sick')
+        r_patch = mpatches.Patch(color='green', label='Recovered')
+        d_patch = mpatches.Patch(color='black', label='Dead')
+        ax2.legend(handles=[h_patch, i_patch, s_patch, r_patch, d_patch], loc="center")
+
+        def animate(i):
+            """perform animation frame"""
+            self.frame()
+
+            # update pieces of the animation
+            h_points.set_data(self.pop.loc[self.pop["situation"] == "not_infected", "x"],
+                              self.pop.loc[self.pop["situation"] == "not_infected", "y"])
+            i_points.set_data(self.pop.loc[self.pop["situation"] == "infected", "x"],
+                              self.pop.loc[self.pop["situation"] == "infected", "y"])
+            s_points.set_data(self.pop.loc[self.pop["situation"] == "sick", "x"],
+                              self.pop.loc[self.pop["situation"] == "sick", "y"])
+            r_points.set_data(self.pop.loc[self.pop["situation"] == "recovered", "x"],
+                              self.pop.loc[self.pop["situation"] == "recovered", "y"])
+            d_points.set_data(self.pop.loc[self.pop["situation"] == "dead", "x"],
+                              self.pop.loc[self.pop["situation"] == "dead", "y"])
+
+            # plot cumulative area
+            ax3.fill_between(range(self.day + 1), self.stats.cumsum(axis=1)["nb_dead"], facecolor='black')
+            ax3.fill_between(range(self.day + 1), self.stats.cumsum(axis=1)["nb_recovered"],
+                             facecolor='green')
+            ax3.fill_between(range(self.day + 1), self.stats.cumsum(axis=1)["nb_sick"], facecolor='red')
+            ax3.fill_between(range(self.day + 1), self.stats.cumsum(axis=1)["nb_infected"],
+                             facecolor='orange')
+            ax3.fill_between(range(self.day + 1), self.stats.cumsum(axis=1)["nb_not_infected"],
+                             facecolor='navy')
+
+            return ax1, ax2, ax3, ax4
+
+        ani = animation.FuncAnimation(fig, animate, frames=500)
+
+        ani.save('myAnimation.gif', writer='PillowWriter', fps=30, dpi=2)
+
+        plt.show()
+
+    def print_situation(self):
+        print(">> DAY", self.day, "<<")
+        print("  -> pct not_infected :", round(self.nb_not_infected/self.pop_size*100, 2), "% \t", self.nb_not_infected)
+        print("  -> pct infected :", round(self.nb_infected / self.pop_size * 100, 2), "% \t", self.nb_infected)
+        print("  -> pct sick :", round(self.nb_sick / self.pop_size * 100, 2), "% \t", self.nb_sick)
+        print("  -> pct recovered :", round(self.nb_recovered / self.pop_size * 100, 2), "% \t", self.nb_recovered)
+        print("  -> pct dead :", round(self.nb_dead / self.pop_size * 100, 2), "% \t", self.nb_dead, "\n")

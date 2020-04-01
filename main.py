@@ -1,11 +1,10 @@
 from VirusSpreadingSimulation.VirusSpredingSimulation import VirusSpreadingSimulation
 
-xlim = 4.
-ylim = 4.
+xlim = 100.
+ylim = 100.
 
 if __name__ == "__main__":
 
-    simulation = VirusSpreadingSimulation(population=10, xlim=xlim, ylim=ylim)
+    simulation = VirusSpreadingSimulation(population=500, xlim=xlim, ylim=ylim, radius_infection=1.)
 
-    while simulation.day < 100:
-        simulation.step()
+    simulation.get_plot()
