@@ -7,6 +7,8 @@ radius_infection = 1.
 
 if __name__ == "__main__":
 
-    simulation = VirusSpreadingSimulation(population=pop, xlim=xlim, ylim=ylim, radius_infection=radius_infection)
-
+    #simulation = VirusSpreadingSimulation(population=pop, xlim=xlim, ylim=ylim)
+    simulation = VirusSpreadingSimulation()
+    #simulation += 50
     simulation.get_plot(save=True)
+    # simulation.get_plot()

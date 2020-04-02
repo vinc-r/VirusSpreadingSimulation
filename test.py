@@ -96,6 +96,10 @@ class TestVSS(unittest.TestCase):
         self.assertListEqual(list(self.VSS.stats.columns),
                              ["nb_not_infected", "nb_infected", "nb_sick", "nb_recovered", "nb_dead"])
 
+    def test_repr(self):
+        """test __repr__ / test print"""
+        self.assertEqual(str(self.VSS), '<ViruseSpredingSimulation class>')
+
     def test_frame(self):
         # call function
         self.VSS.frame()
