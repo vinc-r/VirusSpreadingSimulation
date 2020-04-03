@@ -7,8 +7,11 @@ radius_infection = 1.
 
 if __name__ == "__main__":
 
-    #simulation = VirusSpreadingSimulation(population=pop, xlim=xlim, ylim=ylim)
     simulation = VirusSpreadingSimulation()
-    #simulation += 50
-    simulation.get_plot(save=True)
-    # simulation.get_plot()
+    simulation.get_plot(save=True, save_name='quarantine_and_containment_result')
+
+    simulation = VirusSpreadingSimulation(isolation_threshold=.99)
+    simulation.get_plot(save=True, save_name='only_quarantine_result')
+
+    simulation = VirusSpreadingSimulation(isolation_threshold=.99, quarantine_zone=False)
+    simulation.get_plot(save=True, save_name='no_measure_result')

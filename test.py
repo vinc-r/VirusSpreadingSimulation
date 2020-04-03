@@ -65,11 +65,11 @@ class TestVSS(unittest.TestCase):
         self.assertEqual(self.VSS.nb_dead, 0)
 
         # check pop
-        self.assertEqual(self.VSS.pop.shape, (pop, 13))
+        self.assertEqual(self.VSS.pop.shape, (pop, 14))
         self.assertListEqual(list(self.VSS.pop.columns),
                              ['x', 'y', 'speed', 'healthy', 'infected_day', 'quarantine_zone',
                               'stay_confined', 'recovered', 'dead', 'death_day',
-                              'radian', 'days_keeping_radian', 'situation'])
+                              'radian', 'days_keeping_radian', 'situation', 'without_symptoms'])
         self.assertTrue(self.VSS.pop['x'].min() >= 0)
         self.assertTrue(self.VSS.pop['x'].max() <= xlim)
         self.assertTrue(self.VSS.pop['y'].min() >= 0)
@@ -89,6 +89,8 @@ class TestVSS(unittest.TestCase):
         self.assertListEqual(list(self.VSS.pop.loc[0])[:6], [xlim / 2, ylim / 2, speed_avg, False, 0, False])
         self.assertListEqual(list(self.VSS.pop.loc[0])[7:9], [False, False])
         self.assertEqual(self.VSS.pop.loc[0, 'situation'], "infected")
+        self.assertEqual(self.VSS.pop.loc[0, 'without_symptoms'], False)
+        self.assertTrue(self.VSS.pop['without_symptoms'].isin([False, True]).sum() == pop)
 
         # check stats
         self.assertEqual(self.VSS.stats.shape, (1, 5))
