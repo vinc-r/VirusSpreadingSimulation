@@ -93,10 +93,10 @@ class TestVSS(unittest.TestCase):
         self.assertTrue(self.VSS.pop['without_symptoms'].isin([False, True]).sum() == pop)
 
         # check stats
-        self.assertEqual(self.VSS.stats.shape, (1, 5))
+        self.assertEqual(self.VSS.stats.shape, (1, 6))
         self.assertTrue(self.VSS.stats.index == ["Day_0"])
         self.assertListEqual(list(self.VSS.stats.columns),
-                             ["nb_not_infected", "nb_infected", "nb_sick", "nb_recovered", "nb_dead"])
+                             ["nb_not_infected", "nb_infected", "nb_sick", "nb_recovered", "nb_dead", "nb_immune"])
 
     def test_repr(self):
         """test __repr__ / test print"""
@@ -240,12 +240,13 @@ class TestVSS(unittest.TestCase):
         self.assertEqual(self.VSS.nb_sick, 0)
         self.assertEqual(self.VSS.nb_recovered, 0)
         self.assertEqual(self.VSS.nb_dead, 0)
+        self.assertEqual(self.VSS.nb_immune, 0)
         self.VSS.pop = pd.DataFrame({
-            "x": [0] * 17,
-            "y": [0] * 17,
+            "x": [0] * 18,
+            "y": [0] * 18,
             "situation": ["not_infected", "not_infected", "dead", "infected", "not_infected",
                           "sick", "not_infected", "recovered", "not_infected", "sick", "dead",
-                          "dead", "infected", "infected", "infected", "infected", "infected"]
+                          "dead", "infected", "infected", "infected", "infected", "infected", "immune"]
         })
         self.VSS.day += 1
         self.VSS.update_spreading_counters()
@@ -254,10 +255,11 @@ class TestVSS(unittest.TestCase):
         self.assertEqual(self.VSS.nb_sick, 2)
         self.assertEqual(self.VSS.nb_recovered, 1)
         self.assertEqual(self.VSS.nb_dead, 3)
+        self.assertEqual(self.VSS.nb_immune, 1)
         assert_frame_equal(self.VSS.stats,
-                           pd.DataFrame([[pop - 1, 1, 0, 0, 0], [5, 6, 2, 1, 3]], index=['Day_0', 'Day_1'],
+                           pd.DataFrame([[pop - 1, 1, 0, 0, 0, 0], [5, 6, 2, 1, 3, 1]], index=['Day_0', 'Day_1'],
                                         columns=['nb_not_infected', 'nb_infected',
-                                                 'nb_sick', 'nb_recovered', 'nb_dead']))
+                                                 'nb_sick', 'nb_recovered', 'nb_dead', 'nb_immune']))
 
     def test_update_dead_points(self):
         """Check points correctly change to dead"""
@@ -270,7 +272,8 @@ class TestVSS(unittest.TestCase):
             "days_keeping_radian": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
             "situation": ["not_infected", "not_infected", "dead", "infected", "not_infected",
                           "recovered", "not_infected", "infected", "infected", "sick"],
-            "death_day": [1, 2, 3, 4, 2, 5, 1, 12, 1, 4]
+            "death_day": [1, 2, 3, 4, 2, 5, 1, 12, 1, 4],
+            "without_symptoms": [False] * 10,
         })
 
         # check a situation
@@ -296,6 +299,13 @@ class TestVSS(unittest.TestCase):
         pop_test2.loc[7, ["quarantine_zone", "stay_confined", "dead", "days_keeping_radian",
                           "situation"]] = [True, True, True, 999999, "dead"]
         assert_frame_equal(self.VSS.pop, pop_test2)
+
+        # check without symptoms (can't die)
+        pop["without_symptoms"] = [True] * pop.shape[0]
+        self.VSS.day = 21
+        self.VSS.pop = pop.copy()
+        self.VSS.update_dead_points()
+        assert_frame_equal(self.VSS.pop, pop)
 
     def test_update_infected_to_sick_points(self):
         # TODO

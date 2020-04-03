@@ -1,30 +1,42 @@
 # Virus Spreading Simulation
 
-Here is a visualization of a Virus Spreading Simulation (VSS).
+-----
+author: Vincent Rosset
+date: April 03rd 2020
+-----
 
-Each point can represent a person. A first point is infect by the virus.
-Different parameters affect the propagation. Points can propagate virus between themselves.
+How to visualize the global impact of containment ? To understand, I choose to code in python a **Virus Spreading Simulation (VSS)** considering multiple factors close to the real situation: 
+- infection radius and probability, death rate, incubation period, healing duration, asymptomatic rate, containment threshold, % of population staying contain, immunity spreading.
 
-Here are some points to understand before seeing :
-- The aim is to see differences with or without an isolation of the population.
-- The quarantine area represent an area where sick point can't infect any healthy point.
-- When the containment threshold is achieve : majority of population don't move
+
+
+Each dot represents a person. A first point is infect by the virus.
+Different parameters affect the propagation. Dots can propagate the virus among themselves.
+
+Here are some points to understand before looking at the simulations:
+- The aim is to see the effects of isolation on people.
+- The quarantine area represents an area where sick dots cannot infect any healthy dot.
+- When the containment threshold is achieved a majority of dots does not move.
 
 
 ## With containment and quarantine simulation
 
 ![](https://github.com/vinc-r/VirusSpreadingSimulation/blob/master/quarantine_and_containment_result.gif?raw=true)
 
-The containment really help to educe the propagation. We also have recovered people propagate very well the immunity.
+The containment really helps to reduce the propagation. Recovered people also propagate the immunity very well.
 
 ## With quarantine but without containment simulation
 
 ![](https://github.com/vinc-r/VirusSpreadingSimulation/blob/master/only_quarantine_result.gif?raw=true)
 
-Without containment, infected points still continue to propagate too much. Even if there is a quarantine area for sick points.
+Without containment, infected dots still continue to propagate a lot -even if there is a quarantine area for sick dots.
 
 ## No measure simulation
 
 ![](https://github.com/vinc-r/VirusSpreadingSimulation/blob/master/no_measure_result.gif?raw=true)
 
-Without any measure to contain, the virus propagate very wel between points. 97% of the population is touch by the virus at the end (only 3% get a chance to be immune before).
+Without any measure to contain, the virus propagates very well among dots. 
+97% of the population is affected by the virus at the end and only 3% had a chance to be immune before. 
+
+
+__See code : [https://github.com/vinc-r/VirusSpreadingSimulation/blob/master/VirusSpredingSimulation.py](https://github.com/vinc-r/VirusSpreadingSimulation/blob/master/VirusSpredingSimulation.py)__
