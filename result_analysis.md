@@ -1,8 +1,11 @@
 # Virus Spreading Simulation
 
 -----
+
 author: Vincent Rosset
+
 date: April 03rd 2020
+
 -----
 
 How to visualize the global impact of containment ? To understand, I choose to code in python a **Virus Spreading Simulation (VSS)** considering multiple factors close to the real situation: 
