@@ -34,7 +34,7 @@ The containment really helps to reduce the propagation. Recovered people also pr
 
 Without containment, infected dots still continue to propagate a lot -even if there is a quarantine area for sick dots.
 
-## No measure simulation
+## No containment/quarantine measure simulation
 
 ![](https://github.com/vinc-r/VirusSpreadingSimulation/blob/master/no_measure_result.gif?raw=true)
 
