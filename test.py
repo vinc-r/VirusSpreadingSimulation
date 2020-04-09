@@ -22,6 +22,7 @@ if True:
     pct_pop_isolated = .75
     mpd = 5
     fpm = 5
+    random_seed = 123
 
 
 class TestVSS(unittest.TestCase):
@@ -34,7 +35,8 @@ class TestVSS(unittest.TestCase):
                                             incubation_period=incubation_period, healing_duration=healing_duration,
                                             death_rate=death_rate, without_symptom_rate=without_symptom_rate,
                                             quarantine_zone=quarantine_zone, isolation_threshold=isolation_threshold,
-                                            pct_pop_isolated=pct_pop_isolated, mpd=mpd, fpm=fpm)
+                                            pct_pop_isolated=pct_pop_isolated, mpd=mpd, fpm=fpm,
+                                            random_seed=random_seed)
 
     def test_init(self):
         # check parameters
@@ -52,6 +54,7 @@ class TestVSS(unittest.TestCase):
         self.assertEqual(self.VSS.pct_pop_isolated, pct_pop_isolated)
         self.assertEqual(self.VSS.mpd, mpd)
         self.assertEqual(self.VSS.fpm, fpm)
+        self.assertEqual(self.VSS.initial_seed, random_seed)
 
         # check created variables
         self.assertEqual(self.VSS.day, 0)
@@ -100,11 +103,26 @@ class TestVSS(unittest.TestCase):
 
     def test_repr(self):
         """test __repr__ / test print"""
-        self.assertEqual(str(self.VSS), '<ViruseSpredingSimulation class>')
+        string = "<ViruseSpredingSimulation class (" + "pop_size:" + str(pop) + ", " + \
+                 "(xlim, ylim):" + str((xlim, ylim)) + ", " + \
+                 "radius_infection:" + str(radius_infection) + ", " + \
+                 "p_infection:" + str(p_infection) + ", " + \
+                 "incubation_period:" + str(incubation_period) + ", " + \
+                 "healing_duration:" + str(healing_duration) + ", " + \
+                 "death_rate:" + str(death_rate) + ", " + \
+                 "without_symptom_rate:" + str(without_symptom_rate) + ", " + \
+                 "quarantine_zone:" + str(quarantine_zone) + ", " + \
+                 "isolation_threshold:" + str(isolation_threshold) + ", " + \
+                 "pct_pop_isolated:" + str(pct_pop_isolated) + ", " + \
+                 "speed_avg:" + str(speed_avg) + ", " + "mpd:" + str(mpd) + ", " + \
+                 "fpm:" + str(fpm) + ", " + "initial_random_seed:" + str(random_seed) + ")>"
+        self.assertEqual(str(self.VSS), string)
+        self.assertEqual(self.VSS.__str__(), string)
+        self.assertEqual(self.VSS.__repr__(), string)
 
     def test_frame(self):
         # call function
-        self.VSS.frame()
+        self.VSS._frame()
 
         # check incrementation nb_step
         self.assertEqual(self.VSS.nb_step, 1)
@@ -203,24 +221,24 @@ class TestVSS(unittest.TestCase):
                           "sick", "not_infected", "recovered", "not_infected", "sick"]
         })
         caring_points = pop.loc[pop["situation"].isin(["infected", "sick"]), ["x", "y"]]
-        self.assertEqual(self.VSS.get_nb_caring_points_around((1.5, 1), caring_points), 2)
-        self.assertEqual(self.VSS.get_nb_caring_points_around((2, 1), caring_points), 1)
-        self.assertEqual(self.VSS.get_nb_caring_points_around((3, 2), caring_points), 0)
-        self.assertEqual(self.VSS.get_nb_caring_points_around((.5, .25), caring_points), 1)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((1.5, 1), caring_points), 2)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((2, 1), caring_points), 1)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((3, 2), caring_points), 0)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((.5, .25), caring_points), 1)
 
         # with no caring points
         caring_points = pop.loc[pop["situation"] == "no_caring_point_match", ["x", "y"]]
-        self.assertEqual(self.VSS.get_nb_caring_points_around((1.5, 1), caring_points), 0)
-        self.assertEqual(self.VSS.get_nb_caring_points_around((2, 1), caring_points), 0)
-        self.assertEqual(self.VSS.get_nb_caring_points_around((3, 2), caring_points), 0)
-        self.assertEqual(self.VSS.get_nb_caring_points_around((.5, .25), caring_points), 0)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((1.5, 1), caring_points), 0)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((2, 1), caring_points), 0)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((3, 2), caring_points), 0)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((.5, .25), caring_points), 0)
 
         # with only one caring points (only one point have situation "infected" at [1, 1])
         caring_points = pop.loc[pop["situation"] == "infected", ["x", "y"]]
-        self.assertEqual(self.VSS.get_nb_caring_points_around((1.5, 1), caring_points), 1)
-        self.assertEqual(self.VSS.get_nb_caring_points_around((2, 1), caring_points), 0)
-        self.assertEqual(self.VSS.get_nb_caring_points_around((3, 2), caring_points), 0)
-        self.assertEqual(self.VSS.get_nb_caring_points_around((.5, .25), caring_points), 1)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((1.5, 1), caring_points), 1)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((2, 1), caring_points), 0)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((3, 2), caring_points), 0)
+        self.assertEqual(self.VSS._get_nb_caring_points_around((.5, .25), caring_points), 1)
 
     def test_new_day(self):
         # for the moment only call function already tested
@@ -249,7 +267,7 @@ class TestVSS(unittest.TestCase):
                           "dead", "infected", "infected", "infected", "infected", "infected", "immune"]
         })
         self.VSS.day += 1
-        self.VSS.update_spreading_counters()
+        self.VSS._update_spreading_counters()
         self.assertEqual(self.VSS.nb_not_infected, 5)
         self.assertEqual(self.VSS.nb_infected, 6)
         self.assertEqual(self.VSS.nb_sick, 2)
@@ -279,13 +297,13 @@ class TestVSS(unittest.TestCase):
         # check a situation
         self.VSS.day = 20
         self.VSS.pop = pop.copy()
-        self.VSS.update_dead_points()
+        self.VSS._update_dead_points()
         assert_frame_equal(self.VSS.pop, pop)
 
         # check an other situation
         self.VSS.day = 21
         self.VSS.pop = pop.copy()
-        self.VSS.update_dead_points()
+        self.VSS._update_dead_points()
         pop_test1 = pop.copy()
         pop_test1.loc[[8, 9], ["quarantine_zone", "stay_confined", "dead", "days_keeping_radian",
                                "situation"]] = [True, True, True, 999999, "dead"]
@@ -294,7 +312,7 @@ class TestVSS(unittest.TestCase):
         # check a 3rd situation
         self.VSS.day = 22
         self.VSS.pop = pop.copy()
-        self.VSS.update_dead_points()
+        self.VSS._update_dead_points()
         pop_test2 = pop.copy()
         pop_test2.loc[7, ["quarantine_zone", "stay_confined", "dead", "days_keeping_radian",
                           "situation"]] = [True, True, True, 999999, "dead"]
@@ -304,20 +322,20 @@ class TestVSS(unittest.TestCase):
         pop["without_symptoms"] = [True] * pop.shape[0]
         self.VSS.day = 21
         self.VSS.pop = pop.copy()
-        self.VSS.update_dead_points()
+        self.VSS._update_dead_points()
         assert_frame_equal(self.VSS.pop, pop)
 
     def test_update_infected_to_sick_points(self):
         # TODO
-        self.VSS.update_infected_to_sick_points()
+        self.VSS._update_infected_to_sick_points()
 
     def test_update_recovered_points(self):
         # TODO
-        self.VSS.update_recovered_points()
+        self.VSS._update_recovered_points()
 
     def test_update_radian_points(self):
         # TODO
-        self.VSS.update_radian_points()
+        self.VSS._update_radian_points()
 
     def test_get_stats(self):
         assert_frame_equal(self.VSS.get_stats(), self.VSS.stats)

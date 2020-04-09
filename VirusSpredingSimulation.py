@@ -9,21 +9,36 @@ import matplotlib.animation as animation
 MAX_DAY_KEEP_RAD = 11
 FPS_SAVE = 30
 
-np.random.seed(123)
-
 
 class VirusSpreadingSimulation:
     """
     @title : VirusSpreadingSimulation (VSS)
     @author : Vincent Rosset
-    @version : 0.0.11
+    @version : 0.0.12
+
+    How to visualize the global impact of containment ?
+    To understand, I choose to code in python a **Virus Spreading Simulation (VSS)**
+    considering multiple factors close to the real situation:
+        - infection radius and probability, death rate,
+          incubation period, healing duration,
+          asymptomatic rate, containment threshold,
+          % of population staying contain, immunity spreading.
+
+    Each dot represents a person. A first point is infect by the virus.
+    Different parameters affect the propagation. Dots can propagate the virus among themselves.
+
+    Here are some points to understand before looking at the simulations:
+        - The aim is to see the effects of isolation on people.
+        - The quarantine area represents an area where sick dots cannot infect any healthy dot.
+        - When the containment threshold is achieved a majority of dots does not move.
+
     """
 
     def __init__(self, population=100, xlim=5., ylim=5.,
                  radius_infection="default", p_infection=0.1, incubation_period=14,
                  healing_duration=14, death_rate=0.1, without_symptom_rate=0.3,
                  quarantine_zone=True, isolation_threshold=0.05, pct_pop_isolated=0.9,
-                 immunity_spreading=True, speed_avg="default", mpd=5, fpm=2):
+                 immunity_spreading=True, speed_avg="default", mpd=5, fpm=2, random_seed=123):
 
         """
         __init__
@@ -62,21 +77,17 @@ class VirusSpreadingSimulation:
                 number of movement per day (possible to be infect at each movement)
             - fpm : int ∈ N+*
                 number of frame per movement (actualisation of point positions/color on DataViz)
+            - random_seed : int or 1-d array_like or (Default : 123)
+                Seed for RandomState. Must be convertible to 32 bit unsigned integers.
         """
-
-        self.__name__ = 'VirusSpreadingSimulation'
-        self.__nickname__ = 'VSS'
-        self.__version__ = '0.0.11'
-        self.__author__ = 'Vincent ROSSET'
-        self.__email__ = 'vinc.rosset@gmail.com'
-        self.__status__ = 'Production'
-        self.__coding__ = 'utf-8'
 
         # set up default arg
         if speed_avg == "default":
             speed_avg = (xlim + ylim) / 10
         if radius_infection == "default":
             radius_infection = (xlim + ylim) / 50
+        np.random.seed(random_seed)
+        self.initial_seed = random_seed
 
         # Set population
         self.pop_size = population
@@ -86,12 +97,12 @@ class VirusSpreadingSimulation:
             "x": np.random.uniform(0, xlim, population),
             "y": np.random.uniform(0, ylim, population),
             "speed": np.random.chisquare(speed_avg, population),
-            "healthy": [True] * population,
-            "infected_day": [-1] * population,
-            "quarantine_zone": [False] * population,
+            "healthy": np.full(population, True),
+            "infected_day": np.full(population, -1),
+            "quarantine_zone": np.full(population, False),
             "stay_confined": np.random.choice([True, False], population, p=[pct_pop_isolated, 1 - pct_pop_isolated]),
-            "recovered": [False] * population,
-            "dead": [False] * population,
+            "recovered": np.full(population, False),
+            "dead": np.full(population, False),
             # day of death (will not die if "inf")
             "death_day": np.where(np.random.uniform(0, 1, population) > death_rate, float("inf"),
                                   np.random.choice(
@@ -99,12 +110,13 @@ class VirusSpreadingSimulation:
             "radian": np.random.uniform(-pi, pi, population),
             "days_keeping_radian": np.random.randint(1, MAX_DAY_KEEP_RAD, population),
             # Possible situations ["not_infected", "infected", "sick", "recovered", "dead"]
-            "situation": ["not_infected"] * population,
+            "situation": np.full(population, "not_infected"),
             "without_symptoms": np.random.choice([True, False], population,
                                                  p=[without_symptom_rate, 1 - without_symptom_rate])
         })
         # first sick person in middle of area => patient zero is average person
-        self.pop.iloc[0, [0, 1, 2, 3, 4, 12, 13]] = [xlim / 2, ylim / 2, speed_avg, False, 0, "infected", False]
+        self.pop.loc[0, ["x", "y", "speed", "healthy", "infected_day", "situation", "without_symptoms"]] = \
+            [xlim / 2, ylim / 2, speed_avg, False, 0, "infected", False]
 
         # parameters about how virus is spreading and how population react
         self.radius_infection = radius_infection
@@ -117,6 +129,7 @@ class VirusSpreadingSimulation:
         self.isolation_threshold = isolation_threshold
         self.pct_pop_isolated = pct_pop_isolated
         self.immunity_spreading = immunity_spreading
+        self.speed_avg = speed_avg
 
         # no isolation at the beginning
         self.isolation = False
@@ -151,11 +164,27 @@ class VirusSpreadingSimulation:
 
     def __repr__(self):
         """print class"""
-        return '<ViruseSpredingSimulation class>'
+        return self.__str__()
 
     def __str__(self):
         """print class"""
-        return '<ViruseSpredingSimulation class>'
+        string = "<ViruseSpredingSimulation class ("
+        string += "pop_size:" + str(self.pop_size) + ", "
+        string += "(xlim, ylim):" + str((self.xlim, self.ylim)) + ", "
+        string += "radius_infection:" + str(self.radius_infection) + ", "
+        string += "p_infection:" + str(self.p_infection) + ", "
+        string += "incubation_period:" + str(self.incubation_period) + ", "
+        string += "healing_duration:" + str(self.healing_duration) + ", "
+        string += "death_rate:" + str(self.death_rate) + ", "
+        string += "without_symptom_rate:" + str(self.without_symptom_rate) + ", "
+        string += "quarantine_zone:" + str(self.quarantine_zone) + ", "
+        string += "isolation_threshold:" + str(self.isolation_threshold) + ", "
+        string += "pct_pop_isolated:" + str(self.pct_pop_isolated) + ", "
+        string += "speed_avg:" + str(self.speed_avg) + ", "
+        string += "mpd:" + str(self.mpd) + ", "
+        string += "fpm:" + str(self.fpm) + ", "
+        string += "initial_random_seed:" + str(self.initial_seed) + ")>"
+        return string
 
     def __len__(self):
         """number of days"""
@@ -171,10 +200,17 @@ class VirusSpreadingSimulation:
             raise ValueError
         start = self.day
         while start + nb != self.day:
-            self.frame(verbose=0)
+            self._frame(verbose=0)
 
-    def frame(self, verbose=1):
-        """every frame update positions"""
+    def _frame(self, verbose=1):
+        """
+        Update positions at every frame of gif
+
+        Parameters :
+        ------------
+            - verbose : int (Default 1)
+                information display level
+        """
         self.nb_step += 1
 
         # update positions
@@ -217,6 +253,11 @@ class VirusSpreadingSimulation:
         """
         Movement is represent in a second on the plot, with fpm frame per movement
         At each movement, can be contaminate
+
+        Parameters :
+        ------------
+            - verbose : int (Default 0)
+                information display level
         """
         # Contaminate with probability
         self.contamination()
@@ -254,9 +295,9 @@ class VirusSpreadingSimulation:
                                                            row["y"] + self.radius_infection, inclusive=False))
                 if sum(first_filter) == 0:
                     continue
-                p_stay_safe = (1 - self.p_infection) ** self.get_nb_caring_points_around((row["x"], row["y"]),
-                                                                                         caring_points.loc[
-                                                                                             first_filter])
+                p_stay_safe = (1 - self.p_infection) ** self._get_nb_caring_points_around((row["x"], row["y"]),
+                                                                                          caring_points.loc[
+                                                                                              first_filter])
                 if p_stay_safe < np.random.uniform():
                     self.pop.loc[index, ["healthy", "infected_day", "situation"]] = [False, self.day, "infected"]
 
@@ -278,12 +319,13 @@ class VirusSpreadingSimulation:
                                                            row["y"] + self.radius_infection, inclusive=False))
                 if sum(first_filter) == 0:
                     continue
-                p_stay_usual = (1 - self.p_infection) ** self.get_nb_caring_points_around((row["x"], row["y"]),
-                                                                                          caring_points.loc[first_filter])
+                p_stay_usual = (1 - self.p_infection) ** self._get_nb_caring_points_around((row["x"], row["y"]),
+                                                                                           caring_points.loc[
+                                                                                               first_filter])
                 if p_stay_usual < np.random.uniform():
                     self.pop.loc[index, ["situation"]] = "immune"
 
-    def get_nb_caring_points_around(self, pos, caring_points):
+    def _get_nb_caring_points_around(self, pos, caring_points):
         """
         get_nb_person_around
 
@@ -306,13 +348,13 @@ class VirusSpreadingSimulation:
     def new_day(self, verbose=0):
 
         # update points situation
-        self.update_dead_points()
-        self.update_infected_to_sick_points()
-        self.update_recovered_points()
-        self.update_radian_points()
+        self._update_dead_points()
+        self._update_infected_to_sick_points()
+        self._update_recovered_points()
+        self._update_radian_points()
 
         # update counters
-        self.update_spreading_counters()
+        self._update_spreading_counters()
 
         # update isolation of pop
         sick_prop = self.nb_sick / self.pop_size
@@ -324,7 +366,7 @@ class VirusSpreadingSimulation:
         if verbose > 0:
             self.print_situation()
 
-    def update_spreading_counters(self):
+    def _update_spreading_counters(self):
         """update all spreading counters"""
         value_count = self.pop["situation"].value_counts()
         for situation in ["not_infected", "infected", "sick", "recovered", "dead", "immune"]:
@@ -344,26 +386,26 @@ class VirusSpreadingSimulation:
             index=['Day_' + str(self.day)]
         ))
 
-    def update_dead_points(self):
+    def _update_dead_points(self):
         """update dead points"""
         self.pop.loc[(self.pop["death_day"] == self.day - self.pop["infected_day"]) &
                      (self.pop["infected_day"] != -1) & (~self.pop["without_symptoms"]),
                      ["quarantine_zone", "stay_confined", "dead", "days_keeping_radian", "situation"]] = \
             [True, True, True, 999999, "dead"]
 
-    def update_infected_to_sick_points(self):
+    def _update_infected_to_sick_points(self):
         """points at the end of incubation period passing from infected to sick"""
         self.pop.loc[(self.pop["infected_day"] + self.incubation_period == self.day) & (~self.pop["without_symptoms"]) &
                      (self.pop["situation"] == "infected"), ["quarantine_zone", "situation"]] = [True, "sick"]
 
-    def update_recovered_points(self):
+    def _update_recovered_points(self):
         """points at the end of healing period passing from sick to recovered"""
         self.pop.loc[(self.day - self.pop["infected_day"] == self.healing_duration + self.incubation_period) &
                      (self.pop["situation"].isin(["sick", "infected"])),
                      ["healthy", "quarantine_zone", "stay_confined", "recovered", "situation"]] = \
             [True, False, False, True, "recovered"]
 
-    def update_radian_points(self):
+    def _update_radian_points(self):
         """decrease days_keeping_radian and change radian if needed"""
         self.pop["days_keeping_radian"] = self.pop["days_keeping_radian"] - 1
         change_radian = (self.pop["days_keeping_radian"] == 0)
@@ -377,10 +419,29 @@ class VirusSpreadingSimulation:
                  int(np.random.randint(1, MAX_DAY_KEEP_RAD, sum(change_radian))[0])]
 
     def get_stats(self):
+        """
+        Get global statistics
+
+        Returns :
+        ---------
+            - self.stats : DataFrame
+                global situation for each day
+        """
         return self.stats
 
     def get_plot(self, show=True, save=False, save_name=None):
+        """
+        Get plot
 
+        Parameters :
+        ------------
+            - show : bool (Default True)
+                display or not the plot
+            - save : bool (Default False)
+                save plot as GIF
+            - save_name : str (Default None)
+                name of GIF to save (useless if save == False)
+        """
         fig = plt.figure(constrained_layout=False, figsize=(9, 6))
 
         # Write suptitle with Latex
@@ -469,7 +530,7 @@ class VirusSpreadingSimulation:
         def animate(i):
             """perform animation frame"""
 
-            self.frame()
+            self._frame()
 
             # update pieces of the animation
             h_points.set_data(self.pop.loc[self.pop["situation"] == "not_infected", "x"],
@@ -541,6 +602,9 @@ class VirusSpreadingSimulation:
             return self.stats
 
     def print_situation(self, pct=True):
+        """
+        Display actual situation with print (use with verbose level)
+        """
         print(">>>-- DAY", self.day, "--<<<")
         if pct:
             print("  -> pct not_infected :", round(self.nb_not_infected / self.pop_size * 100, 2), "%",
